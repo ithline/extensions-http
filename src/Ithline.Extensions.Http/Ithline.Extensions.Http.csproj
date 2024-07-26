@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Ithline.Extensions.Http</PackageId>
+    <PackageTags>route;aspnet-core</PackageTags>
+
+    <Description>
+      Provides helper methods to work with HTTP and routing.
+    </Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <IsPackable>true</IsPackable>
+    <IsTrimmable>true</IsTrimmable>
+    <BeforePack>$(BeforePack);IncludeAnalyzersInPackage</BeforePack>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="8.0.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\gen\Ithline.Extensions.Http.SourceGeneration\Ithline.Extensions.Http.SourceGeneration.csproj" ReferenceOutputAssembly="false" PackAsAnalyzer="true" />
+  </ItemGroup>
+
+  <Target Name="IncludeAnalyzersInPackage" Condition="'@(ProjectReference)' != '' and @(ProjectReference-&gt;AnyHaveMetadataValue('PackAsAnalyzer', 'true'))">
+    <MSBuild Projects="@(ProjectReference-&gt;WithMetadataValue('PackAsAnalyzer', 'true'))" Targets="GetAnalyzerPackFiles" RemoveProperties="SetTargetFramework">
+      <Output TaskParameter="TargetOutputs" ItemName="_AnalyzerFile" />
+    </MSBuild>
+
+    <ItemGroup>
+      <Content Include="@(_AnalyzerFile)" Pack="True" Condition="!%(_AnalyzerFile.IsSymbol)" />
+      <!-- Symbols don't honor PackagePath.  By default they are placed in lib/%(TargetFramework).
+           Pack does honor TargetPath and does Path.Combine("lib/%(TargetFramework)", "%(TargetPath)"),
+           so a rooted path value for TargetPath will override lib.
+           https://github.com/NuGet/Home/issues/10860 -->
+      <_TargetPathsToSymbols Include="@(_AnalyzerFile)" TargetPath="/%(_AnalyzerFile.PackagePath)" Condition="%(_AnalyzerFile.IsSymbol)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

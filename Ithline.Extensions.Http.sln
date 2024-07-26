@@ -1,0 +1,56 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{10B64B01-F354-4D17-8FBB-7AF551B9477B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ithline.Extensions.Http", "src\Ithline.Extensions.Http\Ithline.Extensions.Http.csproj", "{04C1CE74-2150-4B66-8DEE-A944C8CB6423}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "gen", "gen", "{CF6CABF3-F4B4-4D42-9EB5-D8C0352B7174}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ithline.Extensions.Http.SourceGeneration", "gen\Ithline.Extensions.Http.SourceGeneration\Ithline.Extensions.Http.SourceGeneration.csproj", "{EE169BC7-6779-4650-AD11-7612A7B5C28A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{67AB3CF0-729F-4A43-864C-648D3F538135}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		.gitignore = .gitignore
+		Directory.Build.props = Directory.Build.props
+		LICENSE = LICENSE
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{F865D702-DF22-45A0-9BB5-86AEA9002BAC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SrcGenTest", "test\SrcGenTest\SrcGenTest.csproj", "{E242B618-B47E-461A-A8B6-488B4E9BDDA6}"
+EndProject
+Global
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B2306FE5-1600-4F77-9EB0-6B81961BE0E6}
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{04C1CE74-2150-4B66-8DEE-A944C8CB6423}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{04C1CE74-2150-4B66-8DEE-A944C8CB6423}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{04C1CE74-2150-4B66-8DEE-A944C8CB6423}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{04C1CE74-2150-4B66-8DEE-A944C8CB6423}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E242B618-B47E-461A-A8B6-488B4E9BDDA6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E242B618-B47E-461A-A8B6-488B4E9BDDA6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E242B618-B47E-461A-A8B6-488B4E9BDDA6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E242B618-B47E-461A-A8B6-488B4E9BDDA6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EE169BC7-6779-4650-AD11-7612A7B5C28A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EE169BC7-6779-4650-AD11-7612A7B5C28A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EE169BC7-6779-4650-AD11-7612A7B5C28A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EE169BC7-6779-4650-AD11-7612A7B5C28A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{04C1CE74-2150-4B66-8DEE-A944C8CB6423} = {10B64B01-F354-4D17-8FBB-7AF551B9477B}
+		{E242B618-B47E-461A-A8B6-488B4E9BDDA6} = {F865D702-DF22-45A0-9BB5-86AEA9002BAC}
+		{EE169BC7-6779-4650-AD11-7612A7B5C28A} = {CF6CABF3-F4B4-4D42-9EB5-D8C0352B7174}
+	EndGlobalSection
+EndGlobal

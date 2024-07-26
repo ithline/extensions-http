@@ -1,0 +1,34 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <NeutralLanguage>en</NeutralLanguage>
+    <Nullable>enable</Nullable>
+
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+    <Deterministic>true</Deterministic>
+    <IncludeSymbols>true</IncludeSymbols>
+
+    <IsPackable>false</IsPackable>
+    <SuppressNETCoreSdkPreviewMessage>true</SuppressNETCoreSdkPreviewMessage>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <ImplicitUsings>true</ImplicitUsings>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionSuffix>alpha</VersionSuffix>
+    <Authors>ithline</Authors>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/ithline/extensions-http</RepositoryUrl>
+    <Copyright>Copyright © 2024 Ithline</Copyright>
+
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)\LICENSE" Pack="true" PackagePath="\"/>
+    <None Include="$(MSBuildThisFileDirectory)\README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
+</Project>
