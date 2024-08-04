@@ -112,13 +112,13 @@ public sealed partial class RouteGenerator
                 signature.Append(")");
             }
 
-            _writer.WriteLine($"""
-                /// <summary>
-                /// Raw pattern used to generate <see cref="{method.Name}({string.Join(", ", method.Parameters.Select(t => t.Type))})"/>.
-                /// </summary>
-                """);
-            _writer.WriteLine($"public const string _{method.Name} = \"{method.Pattern.RawText}\";");
-            _writer.WriteLine();
+            //_writer.WriteLine($"""
+            //    /// <summary>
+            //    /// Raw pattern used to generate <see cref="{method.Name}({string.Join(", ", method.Parameters.Select(t => t.Type))})"/>.
+            //    /// </summary>
+            //    """);
+            //_writer.WriteLine($"public const string _{method.Name} = \"{method.Pattern.RawText}\";");
+            //_writer.WriteLine();
             _writer.WriteLine($"""[global::System.CodeDom.Compiler.GeneratedCodeAttribute("{_assemblyName.Name}", "{_assemblyName.Version}")]""");
             using (_writer.EmitStartBlock(signature.ToString()))
             {
@@ -136,8 +136,6 @@ public sealed partial class RouteGenerator
         private void EmitMethodBodyInline(MethodSpec method)
         {
             var sb = new StringBuilder();
-
-            sb.Append("return $\"");
             foreach (var segment in method.Pattern.PathSegments)
             {
                 sb.Append('/');
@@ -161,9 +159,13 @@ public sealed partial class RouteGenerator
                     }
                 }
             }
-            sb.Append("\";");
 
-            _writer.WriteLine(sb.ToString());
+            if (sb.Length is 0 || (method.AppendTrailingSlash && sb[^1] is not '/'))
+            {
+                sb.Append('/');
+            }
+
+            _writer.WriteLine($"return \"{sb}\";");
         }
 
         private void EmitMethodBodyBuilder(MethodSpec method)

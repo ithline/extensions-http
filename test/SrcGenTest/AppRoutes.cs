@@ -5,6 +5,9 @@ namespace SrcGenTest;
 
 internal static partial class AppRoutes
 {
+    [GeneratedRoute("/")]
+    public static partial string Empty();
+
     [GeneratedRoute("/product/")]
     public static partial string Static();
 
