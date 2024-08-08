@@ -1,4 +1,5 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Ithline.Extensions.Http.SourceGeneration.Models;
 
@@ -52,9 +53,9 @@ internal static class RouteGeneratorEmitter
                 {
                     _pool.Return(obj);
                 }
-            
+
                 [{{AggressiveInlining}}]
-                public static bool IsNull<T>(T? value)
+                public static bool IsNull<T>([global::System.Diagnostics.CodeAnalysis.NotNullWhenAttribute(false)] T? value)
                 {
                     return value is null;
                 }
@@ -68,9 +69,10 @@ internal static class RouteGeneratorEmitter
                 public static void EncodeSpan({{StringBuilder}} sb, {{ReadOnlySpanOfChar}} s, {{SpanOfChar}} buffer)
                 {
                     global::System.Buffers.OperationStatus status;
+                    global::System.Text.Encodings.Web.UrlEncoder encoder = _encoder;
                     do
                     {
-                        status = _encoder.Encode(s, buffer, out int consumed, out int written, isFinalBlock: s.IsEmpty);
+                        status = encoder.Encode(s, buffer, out int consumed, out int written, isFinalBlock: s.IsEmpty);
 
                         sb.Append(buffer.Slice(0, written));
                         s = s.Slice(consumed);
@@ -212,9 +214,11 @@ internal static class RouteGeneratorEmitter
 
     private static void EmitMethodBodyStringBuilder(this CodeWriter writer, PatternMethod method)
     {
-        const string RouteBuilder = "_sb";
-        const string Buffer = "_buffer";
+        const string RouteBuilder = "__sb";
+        const string Buffer = "__buffer";
+        const string FirstQueryName = "__firstQuery";
         const string AppendSlash = $"{RouteBuilder}.Append('/');";
+        const string AppendSeparator = $"{RouteBuilder}.Append({FirstQueryName} ? '?' : '&');";
 
         writer.WriteLine($"// {method.RawPattern}");
         writer.WriteLine($"{StringBuilder} {RouteBuilder} = {RouteHelperClass}.Rent();");
@@ -224,6 +228,7 @@ internal static class RouteGeneratorEmitter
         // allocate encoding buffer
         writer.WriteLine($"{SpanOfChar} {Buffer} = stackalloc char[64];");
 
+        bool builderEmpty = true;
         foreach (var segment in method.Segments)
         {
             var segmentStarted = true;
@@ -245,6 +250,8 @@ internal static class RouteGeneratorEmitter
                     segmentStarted = false;
 
                     writer.WriteLine($@"{RouteBuilder}.Append(""{content}"");");
+
+                    builderEmpty = false;
                 }
                 else if (part is RoutePatternParameter parameter)
                 {
@@ -274,6 +281,10 @@ internal static class RouteGeneratorEmitter
                     {
                         writer.EndBlock();
                     }
+                    else
+                    {
+                        builderEmpty = false;
+                    }
                 }
                 else
                 {
@@ -282,22 +293,27 @@ internal static class RouteGeneratorEmitter
             }
         }
 
-        // add starting/trailing slash
-        var appendTrailingSlashCondition = method.AppendTrailingSlash
-            ? $" || {RouteBuilder}[^1] != '/'"
-            : string.Empty;
-
-        writer.WriteLine();
-        writer.WriteLine($"if ({RouteBuilder}.Length == 0{appendTrailingSlashCondition})");
-        writer.StartBlock();
-        writer.WriteLine(AppendSlash);
-        writer.EndBlock();
+        // if builder can be empty, we need to check
+        if (builderEmpty)
+        {
+            writer.WriteLine();
+            writer.WriteLine($"if ({RouteBuilder}.Length == 0)");
+            writer.StartBlock();
+            writer.WriteLine(AppendSlash);
+            writer.EndBlock();
+        }
+        else if (method.AppendTrailingSlash)
+        {
+            writer.WriteLine();
+            writer.WriteLine($"if ({RouteBuilder}.Length == 0 || {RouteBuilder}[^1] != '/')");
+            writer.StartBlock();
+            writer.WriteLine(AppendSlash);
+            writer.EndBlock();
+        }
 
         var firstQuery = true;
         foreach (var parameter in method.Parameters.OfType<QueryPatternParameter>())
         {
-            const string FirstQueryName = "_firstQuery";
-            const string AppendSeparator = $"{RouteBuilder}.Append({FirstQueryName} ? '?' : '&');";
 
             var queryName = Uri.EscapeDataString(method.LowercaseQueryStrings
                 ? parameter.QueryName.ToLowerInvariant()
@@ -311,23 +327,22 @@ internal static class RouteGeneratorEmitter
             }
             firstQuery = false;
 
-            writer.WriteLine($"if ({parameter.ParameterName} is not null)");
+            writer.WriteLine($"if (!{RouteHelperClass}.IsNull({parameter.ParameterName}))");
             writer.StartBlock();
 
-            if (parameter.ParameterType.IsEnumerable)
+            if (parameter.IsEnumerable)
             {
                 writer.WriteLine($"foreach (var {parameter.EmitElementArgument()} in {parameter.ParameterName})");
                 writer.StartBlock();
 
-                writer.WriteLine($"if ({RouteHelperClass}.IsNull({parameter.EmitElementArgument()}))");
+                writer.WriteLine($"if (!{RouteHelperClass}.IsNull({parameter.EmitElementArgument()}))");
                 writer.StartBlock();
-                writer.WriteLine("continue;");
-                writer.EndBlock();
-
                 writer.WriteLine(AppendSeparator);
                 writer.WriteLine(appendQueryName);
                 EmitParameterValue(writer, parameter, method);
                 writer.WriteLine($"{FirstQueryName} = false;");
+                writer.EndBlock();
+
                 writer.EndBlock();
             }
             else
@@ -344,7 +359,7 @@ internal static class RouteGeneratorEmitter
         if (method.Fragment is FragmentPatternParameter fragment)
         {
             writer.WriteLine();
-            writer.WriteLine($"if ({fragment.ParameterName} is not null)");
+            writer.WriteLine($"if (!{RouteHelperClass}.IsNull({fragment.ParameterName}))");
             writer.StartBlock();
             writer.WriteLine($"{RouteBuilder}.Append('#');");
             EmitParameterValue(writer, fragment, method);
@@ -399,7 +414,7 @@ internal static class RouteGeneratorEmitter
         lowercase |= parameter is RoutePatternParameter && method.LowercaseUrls;
 
         var toLowerInvariant = lowercase ? "?.ToLowerInvariant()" : string.Empty;
-        if (parameter.ParameterType.SpecialType is Microsoft.CodeAnalysis.SpecialType.System_String)
+        if (parameter.IsString)
         {
             return $"{parameter.EmitElementArgument()}{toLowerInvariant}";
         }
@@ -407,7 +422,7 @@ internal static class RouteGeneratorEmitter
         return $"global::System.Convert.ToString({parameter.EmitElementArgument()}, global::System.Globalization.CultureInfo.InvariantCulture){toLowerInvariant}";
     }
     private static string EmitTempArgument(this PatternParameter parameter) => $"{parameter.ParameterName}_temp";
-    private static string EmitElementArgument(this PatternParameter parameter) => parameter is QueryPatternParameter { ParameterType.IsEnumerable: true }
+    private static string EmitElementArgument(this PatternParameter parameter) => parameter is QueryPatternParameter { IsEnumerable: true }
         ? $"{parameter.ParameterName}_element"
         : parameter.ParameterName;
 }

@@ -9,6 +9,9 @@ namespace Ithline.Extensions.Http.SourceGeneration;
 internal sealed class RouteGeneratorParser
 {
     private static readonly char[] _invalidParameterNameChars = [Separator, OpenBrace, CloseBrace, QuestionMark, '*'];
+    private static readonly SymbolDisplayFormat _fullyQualifiedFormat = SymbolDisplayFormat.FullyQualifiedFormat
+        .WithMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
+
     private const char Separator = '/';
     private const char OpenBrace = '{';
     private const char CloseBrace = '}';
@@ -109,7 +112,10 @@ internal sealed class RouteGeneratorParser
                     ParameterName = routeParameter.ParameterName,
                     QueryName = routeParameter.ParameterName,
                     ParameterType = routeParameter.ParameterType,
+                    IsNullable = routeParameter.IsNullable,
+                    IsEnumerable = routeParameter.IsEnumerable,
                     IsInteger = routeParameter.IsInteger,
+                    IsString = routeParameter.IsString,
                     IsLowercase = false,
                 };
             }
@@ -119,28 +125,26 @@ internal sealed class RouteGeneratorParser
         FragmentPatternParameter? fragmentParameter = null;
         foreach (var parameter in parameters)
         {
-            var type = parameter.ParameterType;
-
             // query parameter must be nullable
-            if (parameter is QueryPatternParameter qp && !type.IsNullable && !type.IsEnumerable)
-            {
-                _diagnostics.Add(Descriptors.ParameterMustBeNullableIfOptionalOrQuery, attribute.Location, parameter.ParameterName);
+            //if (parameter is QueryPatternParameter { IsNullable: false, IsEnumerable: false })
+            //{
+            //    _diagnostics.Add(Descriptors.ParameterMustBeNullableIfOptionalOrQuery, attribute.Location, parameter.ParameterName);
 
-                result = null;
-                return false;
-            }
+            //    result = null;
+            //    return false;
+            //}
 
             // optional route parameters must be nullable
-            if (parameter is RoutePatternParameter { IsOptional: true } && !type.IsNullable)
-            {
-                _diagnostics.Add(Descriptors.ParameterMustBeNullableIfOptionalOrQuery, attribute.Location, parameter.ParameterName);
+            //if (parameter is RoutePatternParameter { IsOptional: true, IsNullable: false })
+            //{
+            //    _diagnostics.Add(Descriptors.ParameterMustBeNullableIfOptionalOrQuery, attribute.Location, parameter.ParameterName);
 
-                result = null;
-                return false;
-            }
+            //    result = null;
+            //    return false;
+            //}
 
             // required route parameters cannot be nullable
-            if (parameter is RoutePatternParameter { ParameterKind: RoutePatternParameterKind.Standard } && type.IsNullable)
+            if (parameter is RoutePatternParameter { ParameterKind: RoutePatternParameterKind.Standard, IsNullable: true })
             {
                 _diagnostics.Add(Descriptors.RequiredRouteParameterCannotBeNullable, attribute.Location, parameter.ParameterName);
 
@@ -233,7 +237,9 @@ internal sealed class RouteGeneratorParser
             return false;
         }
 
+        var typeName = parameterType.ToDisplayString(_fullyQualifiedFormat);
         var unwrappedType = parameterType.UnwrapTypeSymbol(unwrapNullable: true);
+        var isString = unwrappedType.SpecialType is SpecialType.System_String;
         var isInteger = unwrappedType.SpecialType
             is SpecialType.System_SByte
             or SpecialType.System_Byte
@@ -243,6 +249,8 @@ internal sealed class RouteGeneratorParser
             or SpecialType.System_UInt32
             or SpecialType.System_Int64
             or SpecialType.System_UInt64;
+        var isEnumerable = unwrappedType.Implements(_symbols.IEnumerable);
+        var isNullable = parameterType.NullableAnnotation is NullableAnnotation.Annotated;
 
         var attributes = symbol.GetAttributes();
         if (attributes.TryGetAttribute(_symbols.QueryAttribute, out var generatedQueryData)
@@ -262,8 +270,11 @@ internal sealed class RouteGeneratorParser
             {
                 ParameterName = symbol.Name,
                 QueryName = string.IsNullOrWhiteSpace(queryName) ? symbol.Name : queryName!,
-                ParameterType = new TypeRef(parameterType),
+                ParameterType = typeName,
+                IsNullable = isNullable,
+                IsEnumerable = isEnumerable,
                 IsInteger = isInteger,
+                IsString = isString,
                 IsLowercase = lowercaseValue,
             };
             return true;
@@ -273,8 +284,11 @@ internal sealed class RouteGeneratorParser
             result = new FragmentPatternParameter
             {
                 ParameterName = symbol.Name,
-                ParameterType = new TypeRef(parameterType),
+                ParameterType = typeName,
+                IsNullable = isNullable,
+                IsEnumerable = isEnumerable,
                 IsInteger = isInteger,
+                IsString = isString,
             };
             return true;
         }
@@ -283,8 +297,11 @@ internal sealed class RouteGeneratorParser
             result = new RoutePatternParameter
             {
                 ParameterName = symbol.Name,
-                ParameterType = new TypeRef(parameterType),
+                ParameterType = typeName,
+                IsNullable = isNullable,
+                IsEnumerable = isEnumerable,
                 IsInteger = isInteger,
+                IsString = isString,
             };
             return true;
         }

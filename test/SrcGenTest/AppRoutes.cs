@@ -1,4 +1,5 @@
 using Ithline.Extensions.Http;
+using Microsoft.Extensions.Primitives;
 
 namespace SrcGenTest;
 
@@ -15,6 +16,6 @@ internal static partial class AppRoutes
         string? catchAll,
         int? q1,
         decimal? q2,
-        [Fragment] decimal? q3,
-        string[]? q4);
+        decimal q3,
+         StringValues? q4);
 }

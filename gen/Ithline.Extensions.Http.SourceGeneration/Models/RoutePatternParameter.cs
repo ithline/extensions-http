@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 
 namespace Ithline.Extensions.Http.SourceGeneration.Models;
 
@@ -9,8 +9,6 @@ public sealed record RoutePatternParameter : PatternParameter, IPatternSegmentPa
     public RoutePatternParameterKind ParameterKind { get; set; }
     public bool IsCatchAll => ParameterKind is RoutePatternParameterKind.CatchAll;
     public bool IsOptional => ParameterKind is RoutePatternParameterKind.Optional;
-
-    public override bool CanEmitInline => (EncodeSlashes || IsInteger) && !IsNullable;
 
     public bool Equals(IPatternSegmentPart other)
     {

@@ -1,11 +1,12 @@
-﻿namespace Ithline.Extensions.Http.SourceGeneration.Models;
+namespace Ithline.Extensions.Http.SourceGeneration.Models;
 
 public abstract record PatternParameter
 {
     public required string ParameterName { get; init; }
-    public required TypeRef ParameterType { get; init; }
-    public required bool IsInteger { get; init; }
+    public required string ParameterType { get; init; }
 
-    public abstract bool CanEmitInline { get; }
-    public bool IsNullable => ParameterType.IsNullable;
+    public required bool IsNullable { get; init; }
+    public required bool IsEnumerable { get; init; }
+    public required bool IsInteger { get; init; }
+    public required bool IsString { get; init; }
 }
