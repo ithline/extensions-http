@@ -1,15 +1,16 @@
 using Microsoft.CodeAnalysis;
 
 namespace Ithline.Extensions.Http.SourceGeneration;
+
 // <summary>
 /// Descriptor for diagnostic instances using structural equality comparison.
 /// Provides a work-around for https://github.com/dotnet/roslyn/issues/68291.
 /// </summary>
-internal readonly struct DiagnosticInfo : IEquatable<DiagnosticInfo>
+public readonly struct DiagnosticInfo : IEquatable<DiagnosticInfo>
 {
     public DiagnosticDescriptor Descriptor { get; private init; }
-    public object?[] MessageArgs { get; private init; }
     public Location? Location { get; private init; }
+    public object?[] MessageArgs { get; private init; }
 
     public static DiagnosticInfo Create(DiagnosticDescriptor descriptor, Location? location, object?[]? messageArgs)
     {
@@ -41,20 +42,22 @@ internal readonly struct DiagnosticInfo : IEquatable<DiagnosticInfo>
 
     public readonly bool Equals(DiagnosticInfo other)
     {
-        return Descriptor.Equals(other.Descriptor) &&
-            MessageArgs.SequenceEqual(other.MessageArgs) &&
-            Location == other.Location;
+        return Descriptor.Equals(other.Descriptor)
+            && Location == other.Location
+            && MessageArgs.SequenceEqual(other.MessageArgs);
     }
 
     public override readonly int GetHashCode()
     {
-        var hashCode = Descriptor.GetHashCode();
+        HashCode hashCode = default;
+        hashCode.Add(Descriptor);
+        hashCode.Add(Location);
+
         foreach (var messageArg in MessageArgs)
         {
-            hashCode = HashCode.Combine(hashCode, messageArg?.GetHashCode() ?? 0);
+            hashCode.Add(messageArg);
         }
 
-        hashCode = HashCode.Combine(hashCode, Location?.GetHashCode() ?? 0);
-        return hashCode;
+        return hashCode.ToHashCode();
     }
 }

@@ -1,6 +1,8 @@
-using Ithline.Extensions.Http.SourceGeneration.Specs;
+using System.Text;
+using Ithline.Extensions.Http.SourceGeneration.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Text;
 
 namespace Ithline.Extensions.Http.SourceGeneration;
 
@@ -16,32 +18,44 @@ public sealed partial class RouteGenerator : IIncrementalGenerator
             }
 #endif
 
-        var compilationData = context.CompilationProvider
-            .Select((compilation, _) => compilation.Options is CSharpCompilationOptions options
-                ? new CompilationData((CSharpCompilation)compilation)
-                : null);
+        var knownTypes = context.CompilationProvider.Select((compilation, _) => KnownTypeSymbols.Create(compilation));
+        var supportedLanguage = context.CompilationProvider.Select((compilation, _) => compilation is CSharpCompilation { LanguageVersion: > LanguageVersion.CSharp11 });
 
-        var generatorSpec = context.SyntaxProvider
+        var routeAttributes = context.SyntaxProvider
             .ForAttributeWithMetadataName(
                 fullyQualifiedMetadataName: "Ithline.Extensions.Http.GeneratedRouteAttribute",
-                predicate: (node, _) => MethodCandidate.IsCandidateSyntaxNode(node),
-                transform: MethodCandidate.Create)
-            .Where(static candidate => candidate is not null)
-            .Collect()
-            .Combine(compilationData)
-            .Select((tuple, cancellationToken) =>
+                predicate: (node, _) => GeneratedRouteAttribute.IsCandidateSyntaxNode(node),
+                transform: (ctx, _) => GeneratedRouteAttribute.Create(ctx)!)
+            .Where(attribute => attribute is not null)
+            .Collect();
+
+        var generatorSpec = routeAttributes
+            .Combine(knownTypes)
+            .Combine(supportedLanguage)
+            .Select((values, ct) =>
             {
-                if (tuple.Right is not CompilationData compilationData)
+                var ((attributes, knownSymbols), supportedLanguage) = values;
+                if (knownSymbols is null || !supportedLanguage)
                 {
-                    return (null, null);
+                    return null;
                 }
 
-                var parser = new Parser(compilationData.TypeSymbols, compilationData.LanguageVersionIsSupported);
-                var specs = parser.GetGeneratorSpec(tuple.Left, cancellationToken);
-                var diagnostics = parser.Diagnostics?.ToEquatableArray();
-                return (specs, diagnostics);
-            })
-            .WithTrackingName(nameof(SourceGenerationSpec));
+                var methods = new List<PatternMethod>();
+                var diagnosticCollector = new DiagnosticCollector();
+                var parser = new RouteGeneratorParser(knownSymbols, diagnosticCollector);
+                foreach (var attribute in attributes)
+                {
+                    if (parser.TryParseMethod(attribute, ct, out var method))
+                    {
+                        methods.Add(method);
+                    }
+                }
+                return new RouteGeneratorSpec
+                {
+                    Methods = [.. methods],
+                    Diagnostics = [.. diagnosticCollector],
+                };
+            });
 
         context.RegisterSourceOutput(generatorSpec, this.ReportDiagnosticsAndEmitSource);
     }
@@ -49,23 +63,29 @@ public sealed partial class RouteGenerator : IIncrementalGenerator
     /// <summary>
     /// Instrumentation helper for unit tests.
     /// </summary>
-    public Action<SourceGenerationSpec>? OnSourceEmitting { get; init; }
+    public Action<RouteGeneratorSpec>? OnSourceEmitting { get; init; }
 
-    private void ReportDiagnosticsAndEmitSource(SourceProductionContext sourceProductionContext, (SourceGenerationSpec? SourceGenerationSpec, EquatableArray<DiagnosticInfo>? Diagnostics) input)
+    private void ReportDiagnosticsAndEmitSource(SourceProductionContext ctx, RouteGeneratorSpec? spec)
     {
-        if (input.Diagnostics is EquatableArray<DiagnosticInfo> diagnostics)
+        if (spec is null)
         {
-            foreach (var diagnostic in diagnostics)
-            {
-                sourceProductionContext.ReportDiagnostic(diagnostic.CreateDiagnostic());
-            }
+            return;
         }
 
-        if (input.SourceGenerationSpec is SourceGenerationSpec spec)
+        foreach (var di in spec.Diagnostics)
         {
-            OnSourceEmitting?.Invoke(spec);
-            var emitter = new Emitter(spec);
-            emitter.Emit(sourceProductionContext);
+            ctx.ReportDiagnostic(di.CreateDiagnostic());
         }
+
+        OnSourceEmitting?.Invoke(spec);
+
+        using var sw = new StringWriter();
+        using var writer = new CodeWriter(sw, 0);
+
+        writer.EmitFileHeader();
+        writer.EmitMethods(spec.Methods);
+        writer.EmitHelper();
+
+        ctx.AddSource("GeneratedRoutes.g.cs", SourceText.From(sw.ToString(), Encoding.UTF8));
     }
 }

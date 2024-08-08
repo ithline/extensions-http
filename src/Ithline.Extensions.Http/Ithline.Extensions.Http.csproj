@@ -7,12 +7,19 @@
     <Description>
       Provides helper methods to work with HTTP and routing.
     </Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <IsPackable>true</IsPackable>
     <IsTrimmable>true</IsTrimmable>
     <BeforePack>$(BeforePack);IncludeAnalyzersInPackage</BeforePack>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\"/>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="8.0.7" />

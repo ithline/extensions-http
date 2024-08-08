@@ -119,10 +119,35 @@ internal static class Descriptors
         title: "The route template separator character '/' cannot appear consecutively",
         message: "The route template separator character '/' cannot appear consecutively. It must be separated by either a parameter or a literal value.");
 
+    public static DiagnosticDescriptor PatternParameterIsMarkedAsQueryOrFragment { get; } = Create(
+        id: 1024,
+        title: "Route pattern parameter is marked as query or fragment",
+        message: "Route pattern paremeter '{0}' is marked as query or fragment.");
+
+    public static DiagnosticDescriptor ParameterIsMarkedAsQueryAndFragment { get; } = Create(
+        id: 1025,
+        title: "Parameter is marked as both query and fragment",
+        message: "Paremeter '{0}' is marked as both query and fragment.");
+
+    public static DiagnosticDescriptor MethodParameterCannotBeParams { get; } = Create(
+        id: 1026,
+        title: "Method parameter cannot be params.",
+        message: "Method parameter '{0}' is marked as params.");
+
+    public static DiagnosticDescriptor RequiredRouteParameterCannotBeNullable { get; } = Create(
+        id: 1027,
+        title: "Required route parameter cannot be nullable.",
+        message: "Required route parameter '{0}' cannot be nullable.");
+
+    public static DiagnosticDescriptor MethodCanHaveOnlyOneFragmentParameter { get; } = Create(
+        id: 1028,
+        title: "Method can have only one fragment parameter.",
+        message: "Method can have only one fragment parameter, parameter '{0}' is not valid.");
+
     private static DiagnosticDescriptor Create(int id, string title, string message, DiagnosticSeverity severity = DiagnosticSeverity.Error)
     {
         return new DiagnosticDescriptor(
-            id: $"ITHL{id:D4}",
+            id: $"IRG{id:D4}",
             title: title,
             messageFormat: message,
             category: nameof(RouteGenerator),

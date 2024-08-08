@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Microsoft.CodeAnalysis;
 
-namespace Ithline.Extensions.Http.SourceGeneration.Specs;
+namespace Ithline.Extensions.Http.SourceGeneration;
 
 /// <summary>
 /// An equatable value representing type identity.
@@ -9,27 +9,30 @@ namespace Ithline.Extensions.Http.SourceGeneration.Specs;
 [DebuggerDisplay("Name = {Name}")]
 public sealed class TypeRef : IEquatable<TypeRef>
 {
+    private static readonly SymbolDisplayFormat _fullyQualifiedFormat = SymbolDisplayFormat.FullyQualifiedFormat
+        .WithMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
+
     public TypeRef(ITypeSymbol type)
     {
         Name = type.Name;
-        FullyQualifiedName = type.GetFullyQualifiedName();
-        IsValueType = type.IsValueType;
+        FullyQualifiedName = type.ToDisplayString(_fullyQualifiedFormat);
         TypeKind = type.TypeKind;
         SpecialType = type.OriginalDefinition.SpecialType;
+
+        IsValueType = type.IsValueType;
+        IsEnumerable = type.IsEnumerable();
+        IsNullable = (IsValueType && SpecialType is SpecialType.System_Nullable_T)
+            || (!IsValueType && type.NullableAnnotation is NullableAnnotation.Annotated);
     }
 
     public string Name { get; }
-
-    /// <summary>
-    /// Fully qualified assembly name, prefixed with "global::", e.g. global::System.Numerics.BigInteger.
-    /// </summary>
     public string FullyQualifiedName { get; }
-
-    public bool IsValueType { get; }
     public TypeKind TypeKind { get; }
     public SpecialType SpecialType { get; }
 
-    public bool CanBeNull => !IsValueType || SpecialType is SpecialType.System_Nullable_T;
+    public bool IsValueType { get; }
+    public bool IsNullable { get; }
+    public bool IsEnumerable { get; }
 
     public bool Equals(TypeRef? other) => other != null && FullyQualifiedName == other.FullyQualifiedName;
     public override bool Equals(object? obj) => this.Equals(obj as TypeRef);

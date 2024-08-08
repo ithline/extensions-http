@@ -1,4 +1,4 @@
-﻿namespace Ithline.Extensions.Http.SourceGeneration.Patterns;
+﻿namespace Ithline.Extensions.Http.SourceGeneration.Models;
 
 /// <summary>
 /// Defines the kinds of <see cref="RoutePatternParameterPart"/> instances.

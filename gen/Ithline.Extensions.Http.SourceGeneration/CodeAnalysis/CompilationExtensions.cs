@@ -1,61 +1,13 @@
 using System.Diagnostics.CodeAnalysis;
-using Microsoft.CodeAnalysis;
 
-namespace Ithline.Extensions.Http.SourceGeneration;
+namespace Microsoft.CodeAnalysis;
 
-internal static class RoslynExtensions
+internal static class CompilationExtensions
 {
-    private static readonly SymbolDisplayFormat _fullyQualifiedFormat = SymbolDisplayFormat.FullyQualifiedFormat
-        .WithMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
-
-    [return: NotNullIfNotNull(nameof(typeSymbol))]
-    public static ITypeSymbol? GetUnderlyingNullableTypeOrSelf(this ITypeSymbol? typeSymbol)
+    public static bool TryGetBestTypeByMetadataName(this Compilation compilation, string fullyQualifiedMetadataName, [NotNullWhen(true)] out INamedTypeSymbol? result)
     {
-        if (typeSymbol is INamedTypeSymbol namedTypeSymbol)
-        {
-            if (namedTypeSymbol.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T && namedTypeSymbol.TypeArguments.Length == 1)
-            {
-                return namedTypeSymbol.TypeArguments[0];
-            }
-        }
-
-        return typeSymbol;
-    }
-
-    public static bool IsEnumerable(this ITypeSymbol typeSymbol)
-    {
-        if (typeSymbol.SpecialType is SpecialType.System_Collections_IEnumerable)
-        {
-            return true;
-        }
-
-        foreach (var i in typeSymbol.AllInterfaces)
-        {
-            if (i.SpecialType is SpecialType.System_Collections_IEnumerable)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    public static string GetFullyQualifiedName(this ITypeSymbol type) => type.ToDisplayString(_fullyQualifiedFormat);
-
-    public static bool CanBeInlined(this ITypeSymbol type)
-    {
-        var underlyingType = type.GetUnderlyingNullableTypeOrSelf();
-        var specialType = underlyingType.SpecialType;
-
-        return specialType is SpecialType.System_Boolean
-            or SpecialType.System_SByte
-            or SpecialType.System_Byte
-            or SpecialType.System_Int16
-            or SpecialType.System_UInt16
-            or SpecialType.System_Int32
-            or SpecialType.System_UInt32
-            or SpecialType.System_Int64
-            or SpecialType.System_UInt64;
+        result = compilation.GetBestTypeByMetadataName(fullyQualifiedMetadataName);
+        return result is not null;
     }
 
     /// <summary>
