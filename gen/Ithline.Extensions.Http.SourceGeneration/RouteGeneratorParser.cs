@@ -249,7 +249,7 @@ internal sealed class RouteGeneratorParser
             or SpecialType.System_UInt32
             or SpecialType.System_Int64
             or SpecialType.System_UInt64;
-        var isEnumerable = unwrappedType.Implements(_symbols.IEnumerable);
+        var isEnumerable = !isString && unwrappedType.Implements(_symbols.IEnumerable);
         var isNullable = parameterType.NullableAnnotation is NullableAnnotation.Annotated;
 
         var attributes = symbol.GetAttributes();
