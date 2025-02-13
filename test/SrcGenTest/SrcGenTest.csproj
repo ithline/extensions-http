@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
     <IsPackable>false</IsPackable>
+    <LangVersion>13</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

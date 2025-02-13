@@ -7,7 +7,7 @@ The generator parses provided route pattern and generates method implementation 
 
 Each method can be configured to lowercase the route path and/or query strings, and append trailing slash to the path.
 
-Generator handles parameter encoding, `IEnumerable` parameters and optional route and query parameters.
+Generator handles parameter encoding, array parameters and optional route and query parameters.
 
 ## Installation
 

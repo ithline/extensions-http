@@ -1,14 +1,11 @@
-using System.Diagnostics.CodeAnalysis;
-
 namespace Microsoft.CodeAnalysis;
 
 internal static class CompilationExtensions
 {
-    public static bool TryGetBestTypeByMetadataName(this Compilation compilation, string fullyQualifiedMetadataName, [NotNullWhen(true)] out INamedTypeSymbol? result)
-    {
-        result = compilation.GetBestTypeByMetadataName(fullyQualifiedMetadataName);
-        return result is not null;
-    }
+    private static readonly SymbolDisplayFormat _fullyQualifiedFormat = SymbolDisplayFormat.FullyQualifiedFormat
+        .WithMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
+
+    public static string GetFullyQualifiedName(this ITypeSymbol type) => type.ToDisplayString(_fullyQualifiedFormat);
 
     /// <summary>
     /// Gets a type by its metadata name to use for code analysis within a <see cref="Compilation"/>. This method
