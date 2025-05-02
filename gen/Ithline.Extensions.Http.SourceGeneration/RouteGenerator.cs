@@ -997,7 +997,7 @@ public sealed class RouteGenerator : IIncrementalGenerator
             void AppendQueryName(string queryName)
             {
                 writer.WriteLine($"{temp_sb}.Append({temp_firstQuery} ? '?' : '&');");
-                writer.WriteLine($"""{temp_sb}.Append("{queryName}");""");
+                writer.WriteLine($"""{temp_sb}.Append("{queryName}=");""");
             }
 
             void AppendStringConvert(TypeRef type, string name, bool lowercase)
