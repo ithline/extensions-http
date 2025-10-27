@@ -6,10 +6,16 @@ internal static class Constants
     public const string FragmentAttribute = "Ithline.Extensions.Http.FragmentAttribute";
     public const string QueryAttribute = "Ithline.Extensions.Http.QueryAttribute";
 
-    public const string Dictionary = "System.Collections.Generic.Dictionary`2";
-    public const string IEnumerable = "System.Collections.IEnumerable";
+    public const string KeyValuePair = "System.Collections.Generic.KeyValuePair`2";
     public const string UrlEncoder = "System.Text.Encodings.Web.UrlEncoder";
     public const string StringBuilder = "System.Text.StringBuilder";
+
+    public const char Separator = '/';
+    public const char OpenBrace = '{';
+    public const char CloseBrace = '}';
+    public const char QuestionMark = '?';
+    public const char DoubleQuote = '"';
+    public const string PeriodString = ".";
 
     public const string FileHeader = """
         //------------------------------------------------------------------------------

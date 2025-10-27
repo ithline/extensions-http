@@ -9,33 +9,47 @@ namespace Ithline.Extensions.Http.SourceGeneration;
 [DebuggerDisplay("Name = {Name}")]
 public class TypeRef : IEquatable<TypeRef>
 {
-    public TypeRef(string name, SpecialType specialType, NullableAnnotation nullableAnnotation, bool isValueType)
+    public required string Name { get; init; }
+    public required SpecialType SpecialType { get; init; }
+    public required NullableAnnotation NullableAnnotation { get; init; }
+    public required bool IsValueType { get; init; }
+
+    public static TypeRef Create(Compilation compilation, ITypeSymbol symbol)
     {
-        Name = name;
-        SpecialType = specialType;
-        NullableAnnotation = nullableAnnotation;
-        IsValueType = isValueType;
-    }
-
-    public string Name { get; }
-    public SpecialType SpecialType { get; }
-    public NullableAnnotation NullableAnnotation { get; }
-    public bool IsValueType { get; }
-
-    public static TypeRef Create(ITypeSymbol symbol)
-    {
-        var name = symbol.GetFullyQualifiedName();
-        var specialType = symbol.OriginalDefinition.SpecialType;
-        var nullableAnotation = symbol.NullableAnnotation;
-
         if (symbol is IArrayTypeSymbol array)
         {
-            var elementType = Create(array.ElementType);
-            return new ArrayTypeRef(name, specialType, nullableAnotation, elementType);
+            var elementType = Create(compilation, array.ElementType);
+            return new ArrayTypeRef
+            {
+                Name = symbol.GetFullyQualifiedName(),
+                ElementType = elementType,
+                SpecialType = symbol.OriginalDefinition.SpecialType,
+                NullableAnnotation = symbol.NullableAnnotation,
+                IsValueType = false,
+            };
         }
 
-        var isValueType = symbol.IsValueType;
-        return new TypeRef(name, specialType, nullableAnotation, isValueType);
+        var symbolKeyValuePair = compilation.GetBestTypeByMetadataName(Constants.KeyValuePair);
+        if (symbol is INamedTypeSymbol named && SymbolEqualityComparer.Default.Equals(symbol.OriginalDefinition, symbolKeyValuePair))
+        {
+            return new KeyValueTypeRef
+            {
+                Name = symbol.GetFullyQualifiedName(),
+                KeyType = Create(compilation, named.TypeArguments[0]),
+                ValueType = Create(compilation, named.TypeArguments[1]),
+                SpecialType = symbol.OriginalDefinition.SpecialType,
+                NullableAnnotation = symbol.NullableAnnotation,
+                IsValueType = symbol.IsValueType,
+            };
+        }
+
+        return new TypeRef
+        {
+            Name = symbol.GetFullyQualifiedName(),
+            SpecialType = symbol.OriginalDefinition.SpecialType,
+            NullableAnnotation = symbol.NullableAnnotation,
+            IsValueType = symbol.IsValueType,
+        };
     }
 
     public bool IsNullAssignable()
@@ -55,11 +69,11 @@ public class TypeRef : IEquatable<TypeRef>
 
 public sealed class ArrayTypeRef : TypeRef
 {
-    public ArrayTypeRef(string fullyQualifiedName, SpecialType specialType, NullableAnnotation nullableAnnotation, TypeRef elementType)
-        : base(fullyQualifiedName, specialType, nullableAnnotation, isValueType: false)
-    {
-        ElementType = elementType;
-    }
+    public required TypeRef ElementType { get; init; }
+}
 
-    public TypeRef ElementType { get; }
+public sealed class KeyValueTypeRef : TypeRef
+{
+    public required TypeRef KeyType { get; init; }
+    public required TypeRef ValueType { get; init; }
 }

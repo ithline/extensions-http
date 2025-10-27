@@ -5,7 +5,7 @@ namespace Ithline.Extensions.Http;
 /// <summary>
 /// Instructs the Ithline.Extensions.Http source generator to generate an implementation of the specified route building method.
 /// </summary>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
 public sealed class GeneratedRouteAttribute : Attribute
 {
     /// <summary>
