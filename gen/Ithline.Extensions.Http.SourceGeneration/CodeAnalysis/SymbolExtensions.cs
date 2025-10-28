@@ -19,6 +19,7 @@ internal static class SymbolExtensions
         matchedAttribute = null;
         return false;
     }
+
     public static T? GetNamedArgumentValue<T>(this AttributeData attribute, string argumentName)
     {
         foreach (var namedArgument in attribute.NamedArguments)
@@ -29,6 +30,17 @@ internal static class SymbolExtensions
                 return (T?)routeParameterNameConstant.Value;
             }
         }
+        return default;
+    }
+
+    public static T? GetConstructorArgumentValue<T>(this AttributeData attribute, int index)
+    {
+        if (attribute.ConstructorArguments.Length > index)
+        {
+            var argumentConstant = attribute.ConstructorArguments[index].Value;
+            return (T?)argumentConstant;
+        }
+
         return default;
     }
 }

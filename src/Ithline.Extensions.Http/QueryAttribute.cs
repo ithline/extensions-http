@@ -9,14 +9,15 @@ public sealed class QueryAttribute : Attribute
     /// <summary>
     /// Initializes a new instance of the <see cref="QueryAttribute"/> with the specified name.
     /// </summary>
-    public QueryAttribute()
+    public QueryAttribute(string? name = null)
     {
+        Name = name;
     }
 
     /// <summary>
     /// Gets the name of the query key.
     /// </summary>
-    public string? Name { get; set; }
+    public string? Name { get; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the value should be lowercase.

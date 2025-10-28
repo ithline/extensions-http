@@ -1,11 +1,17 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <RootNamespace>Ithline.Extensions.Http</RootNamespace>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-    <IsPackable>false</IsPackable>
-    <LangVersion>13</LangVersion>
+    <OutputType>Exe</OutputType>
+    
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" Version="3.1.0" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\gen\Ithline.Extensions.Http.SourceGeneration\Ithline.Extensions.Http.SourceGeneration.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />

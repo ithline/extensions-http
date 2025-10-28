@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Reflection.Metadata;
 using Ithline.Extensions.Http.SourceGeneration.Parsing;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -171,7 +170,7 @@ public sealed class RouteGenerator : IIncrementalGenerator
             }
             else if (queryAttribute is not null)
             {
-                var queryName = queryAttribute.GetNamedArgumentValue<string>("Name");
+                var queryName = queryAttribute.GetConstructorArgumentValue<string>(0);
                 parameters.Add(new QueryParameter
                 {
                     Name = parameterSymbol.Name,
@@ -319,7 +318,14 @@ public sealed class RouteGenerator : IIncrementalGenerator
         writer.Indent--;
 
         writer.StartBlock();
-        EmitBuilderBody(writer, method);
+        if (method.Parameters.Count == 0)
+        {
+            EmitInlineBody(writer, method);
+        }
+        else
+        {
+            EmitBuilderBody(writer, method);
+        }
         writer.EndBlock();
 
         // close all scopes
@@ -327,286 +333,326 @@ public sealed class RouteGenerator : IIncrementalGenerator
         {
             writer.EndBlock();
         }
+    }
+    private static void EmitInlineBody(CodeWriter writer, RouteMethod method)
+    {
+        string? last = null;
 
-        static void EmitBuilderBody(CodeWriter writer, RouteMethod method)
+        writer.Write("return \"");
+        foreach (var segment in method.Segments)
         {
-            var tempCounter = 0;
-            var localNames = method.Parameters.Select(t => t.Name).ToHashSet();
-            var temp_sb = GetNextTemp();
-            var temp_span = GetNextTemp();
-            var temp_buffer = GetNextTemp();
-            var temp_firstQuery = GetNextTemp();
-
-            // init method state
-            writer.WriteLine($"// {method.RawPattern}");
-            writer.WriteLine($"global::{Constants.StringBuilder} {temp_sb} = {RouteHelper}.Rent();");
-
-            // try
-            writer.WriteLine("try");
-            writer.StartBlock();
-
-            // allocate encoding buffer
-            writer.WriteLine($"global::System.ReadOnlySpan<char> {temp_span};");
-            writer.WriteLine($"global::System.Span<char> {temp_buffer} = stackalloc char[64];");
-
-            if (method.Parameters.OfType<QueryParameter>().Any())
+            writer.Write(last = "/");
+            foreach (var part in segment)
             {
-                writer.WriteLine($"bool {temp_firstQuery} = true;");
-            }
-
-            foreach (var segment in method.Segments)
-            {
-                var segmentStarted = true;
-
-                writer.WriteLine();
-                writer.WriteLine($"// /{segment}");
-                foreach (var part in segment)
+                Debug.Assert(part is PatternLiteral);
+                if (part is PatternLiteral literal)
                 {
-                    if (part is PatternLiteral literal)
-                    {
-                        var content = method.LowercaseUrls
-                            ? literal.Content.ToLowerInvariant()
-                            : literal.Content;
+                    var content = method.LowercaseUrls
+                        ? literal.Content.ToLowerInvariant()
+                        : literal.Content;
+                    writer.Write(content);
 
-                        if (segmentStarted)
-                        {
-                            content = '/' + content;
-                        }
-                        segmentStarted = false;
-
-                        writer.WriteLine($"""{temp_sb}.Append("{content}");""");
-                    }
-                    else if (part is RouteParameter { EncodeSlashes: false } catchAll)
-                    {
-                        AppendStringConvert(catchAll.Type, catchAll.Name, method.LowercaseUrls);
-
-                        var index = GetNextTemp();
-                        writer.WriteLine($"int {index};");
-                        writer.WriteLine($"{temp_span} = {temp_span}.Trim('/');");
-                        writer.WriteLine($"while (({index} = {temp_span}.IndexOf('/')) >= 0)");
-                        writer.StartBlock();
-                        AppendSlash();
-                        AppendEncode($"{temp_span}.Slice(0, {index})");
-                        writer.WriteLine($"{temp_span} = {temp_span}.Slice({index} + 1);");
-                        writer.EndBlock();
-
-                        writer.WriteLine();
-                        AppendSlash();
-                        AppendEncode(temp_span);
-                    }
-                    else if (part is RouteParameter parameter)
-                    {
-                        // for optional parameters, we emit null checks
-                        if (parameter.IsOptional)
-                        {
-                            AppendIfNotNull(parameter.Name);
-                            writer.StartBlock();
-                        }
-
-                        // if parameter is first value in segment, we emit slash
-                        if (segmentStarted)
-                        {
-                            AppendSlash();
-                        }
-                        segmentStarted = false;
-
-                        // we emit separator in case we have value
-                        if (parameter.HasOptionalSeparator)
-                        {
-                            writer.WriteLine($"{temp_sb}.Append('.');");
-                        }
-
-                        AppendStringConvert(parameter.Type, parameter.Name, method.LowercaseUrls);
-                        AppendEncode(temp_span);
-
-                        if (parameter.IsOptional)
-                        {
-                            writer.EndBlock();
-                        }
-                    }
-                    else
-                    {
-                        Debug.Fail("This is not valid case.");
-                    }
+                    last = string.IsNullOrWhiteSpace(content) ? last : content;
                 }
             }
+        }
 
-            // append trailing slash if empty or required slash
+        if (string.IsNullOrWhiteSpace(last) || (method.AppendTrailingSlash && last![^1] is not '/'))
+        {
+            writer.Write('/');
+        }
+
+        writer.WriteLine("\";");
+    }
+    private static void EmitBuilderBody(CodeWriter writer, RouteMethod method)
+    {
+        var tempCounter = 0;
+        var localNames = method.Parameters.Select(t => t.Name).ToHashSet();
+        var temp_sb = GetNextTemp();
+        var temp_span = GetNextTemp();
+        var temp_buffer = GetNextTemp();
+        var temp_firstQuery = GetNextTemp();
+
+        // init method state
+        writer.WriteLine($"// {method.RawPattern}");
+        writer.WriteLine($"global::{Constants.StringBuilder} {temp_sb} = {RouteHelper}.Rent();");
+
+        // try
+        writer.WriteLine("try");
+        writer.StartBlock();
+
+        // allocate encoding buffer
+        writer.WriteLine($"global::System.ReadOnlySpan<char> {temp_span};");
+        writer.WriteLine($"global::System.Span<char> {temp_buffer} = stackalloc char[64];");
+
+        if (method.Parameters.OfType<QueryParameter>().Any())
+        {
+            writer.WriteLine($"bool {temp_firstQuery} = true;");
+        }
+
+        foreach (var segment in method.Segments)
+        {
+            var segmentStarted = true;
+
             writer.WriteLine();
-            writer.WriteLine($"// append slash");
-            writer.Write($"if ({temp_sb}.Length == 0");
-            if (method.AppendTrailingSlash)
+            writer.WriteLine($"// /{segment}");
+            foreach (var part in segment)
             {
-                writer.Write($" || {temp_sb}[^1] is not '/'");
-            }
-            writer.WriteLine(")");
-            writer.StartBlock();
-            AppendSlash();
-            writer.EndBlock();
-
-            foreach (var parameter in method.Parameters.OfType<QueryParameter>())
-            {
-                var queryName = Uri.EscapeDataString(method.LowercaseQueryStrings
-                    ? parameter.QueryName.ToLowerInvariant()
-                    : parameter.QueryName);
-
-                writer.WriteLine();
-
-                if (parameter.Type.IsNullAssignable())
+                if (part is PatternLiteral literal)
                 {
-                    AppendIfNotNull(parameter.Name);
-                    writer.StartBlock();
-                }
+                    var content = method.LowercaseUrls
+                        ? literal.Content.ToLowerInvariant()
+                        : literal.Content;
 
-                if (parameter.Type is ArrayTypeRef { ElementType: var elementType })
-                {
-                    if (elementType is KeyValueTypeRef kvp)
+                    if (segmentStarted)
                     {
-                        var key = GetNextTemp();
-                        var value = GetNextTemp();
-                        writer.WriteLine($"foreach (var ({key}, {value}) in {parameter.Name})");
-                        writer.StartBlock();
-
-                        if (kvp.ValueType.IsNullAssignable())
-                        {
-                            AppendIfNotNull(value);
-                            writer.StartBlock();
-                        }
-
-                        writer.WriteLine($"{temp_sb}.Append({temp_firstQuery} ? '?' : '&');");
-                        writer.WriteLine($"""{temp_sb}.Append("{queryName}[");""");
-                        AppendStringConvert(kvp.KeyType, key, false);
-                        AppendEncode(temp_span);
-                        writer.WriteLine($"""{temp_sb}.Append("]=");""");
-
-                        AppendStringConvert(kvp.ValueType, value, method.LowercaseQueryStrings || parameter.IsLowercase);
-                        AppendEncode(temp_span);
-
-                        // emit first query
-                        writer.WriteLine($"{temp_firstQuery} = false;");
-
-                        if (kvp.ValueType.IsNullAssignable())
-                        {
-                            writer.EndBlock();
-                        }
-
-                        writer.EndBlock();
+                        content = '/' + content;
                     }
-                    else
+                    segmentStarted = false;
+
+                    writer.WriteLine($"""{temp_sb}.Append("{content}");""");
+                }
+                else if (part is RouteParameter { EncodeSlashes: false } catchAll)
+                {
+                    var index = GetNextTemp();
+                    var local = GetNextTemp();
+
+                    writer.WriteLine($"int {index};");
+                    AppendStringConvert(catchAll.Type, catchAll.Name, method.LowercaseUrls);
+                    writer.WriteLine($"while (({index} = {temp_span}.IndexOf('/')) >= 0)");
+                    writer.StartBlock();
+                    writer.WriteLine($"global::System.ReadOnlySpan<char> {local} = {temp_span}.Slice(0, {index});");
+
+                    writer.WriteLine($"if (!{local}.IsEmpty)");
+                    writer.StartBlock();
+                    AppendSlash();
+                    AppendEncode($"{local}");
+                    writer.EndBlock();
+                    writer.WriteLine();
+
+                    writer.WriteLine($"{temp_span} = {temp_span}.Slice({index} + 1);");
+                    writer.EndBlock();
+
+                    writer.WriteLine();
+
+                    writer.WriteLine($"if (!{temp_span}.IsEmpty)");
+                    writer.StartBlock();
+                    AppendSlash();
+                    AppendEncode(temp_span);
+                    writer.EndBlock();
+                }
+                else if (part is RouteParameter parameter)
+                {
+                    // for optional parameters, we emit null checks
+                    if (parameter.IsOptional)
                     {
-                        var element = GetNextTemp();
-                        writer.WriteLine($"foreach (var {element} in {parameter.Name})");
+                        AppendIfNotNull(parameter.Name);
                         writer.StartBlock();
+                    }
 
-                        if (elementType.IsNullAssignable())
-                        {
-                            AppendIfNotNull(element);
-                            writer.StartBlock();
-                        }
+                    // if parameter is first value in segment, we emit slash
+                    if (segmentStarted)
+                    {
+                        AppendSlash();
+                    }
+                    segmentStarted = false;
 
-                        AppendQueryName(queryName);
-                        AppendStringConvert(elementType, element, method.LowercaseQueryStrings || parameter.IsLowercase);
-                        AppendEncode(temp_span);
+                    // we emit separator in case we have value
+                    if (parameter.HasOptionalSeparator)
+                    {
+                        writer.WriteLine($"{temp_sb}.Append('.');");
+                    }
 
-                        // emit first query
-                        writer.WriteLine($"{temp_firstQuery} = false;");
+                    AppendStringConvert(parameter.Type, parameter.Name, method.LowercaseUrls);
+                    AppendEncode(temp_span);
 
-                        if (elementType.IsNullAssignable())
-                        {
-                            writer.EndBlock();
-                        }
+                    if (parameter.IsOptional)
+                    {
                         writer.EndBlock();
                     }
                 }
                 else
                 {
-                    AppendQueryName(queryName);
-                    AppendStringConvert(parameter.Type, parameter.Name, method.LowercaseQueryStrings || parameter.IsLowercase);
+                    Debug.Fail("This is not valid case.");
+                }
+            }
+        }
+
+        // append trailing slash if empty or required slash
+        writer.WriteLine();
+        writer.WriteLine($"// append slash");
+        writer.Write($"if ({temp_sb}.Length == 0");
+        if (method.AppendTrailingSlash)
+        {
+            writer.Write($" || {temp_sb}[^1] is not '/'");
+        }
+        writer.WriteLine(")");
+        writer.StartBlock();
+        AppendSlash();
+        writer.EndBlock();
+
+        foreach (var parameter in method.Parameters.OfType<QueryParameter>())
+        {
+            var queryName = Uri.EscapeDataString(method.LowercaseQueryStrings
+                ? parameter.QueryName.ToLowerInvariant()
+                : parameter.QueryName);
+
+            writer.WriteLine();
+
+            if (parameter.Type.IsNullAssignable())
+            {
+                AppendIfNotNull(parameter.Name);
+                writer.StartBlock();
+            }
+
+            if (parameter.Type is ArrayTypeRef { ElementType: var elementType })
+            {
+                if (elementType is KeyValueTypeRef kvp)
+                {
+                    var key = GetNextTemp();
+                    var value = GetNextTemp();
+                    writer.WriteLine($"foreach (var ({key}, {value}) in {parameter.Name})");
+                    writer.StartBlock();
+
+                    if (kvp.ValueType.IsNullAssignable())
+                    {
+                        AppendIfNotNull(value);
+                        writer.StartBlock();
+                    }
+
+                    writer.WriteLine($"{temp_sb}.Append({temp_firstQuery} ? '?' : '&');");
+                    writer.WriteLine($"""{temp_sb}.Append("{queryName}[");""");
+                    AppendStringConvert(kvp.KeyType, key, false);
+                    AppendEncode(temp_span);
+                    writer.WriteLine($"""{temp_sb}.Append("]=");""");
+
+                    AppendStringConvert(kvp.ValueType, value, method.LowercaseQueryStrings || parameter.IsLowercase);
                     AppendEncode(temp_span);
 
                     // emit first query
                     writer.WriteLine($"{temp_firstQuery} = false;");
-                }
 
-                if (parameter.Type.IsNullAssignable())
-                {
+                    if (kvp.ValueType.IsNullAssignable())
+                    {
+                        writer.EndBlock();
+                    }
+
                     writer.EndBlock();
-                }
-            }
-
-            if (method.Fragment is FragmentParameter fragment)
-            {
-                writer.WriteLine();
-                AppendIfNotNull(fragment.Name);
-                writer.StartBlock();
-                writer.WriteLine($"{temp_sb}.Append('#');");
-                AppendStringConvert(fragment.Type, fragment.Name, false);
-                AppendEncode(temp_span);
-                writer.EndBlock();
-            }
-
-            writer.WriteLine($"return {temp_sb}.ToString();");
-
-            // end try
-            writer.EndBlock();
-
-            // finally
-            writer.WriteLine("finally");
-            writer.StartBlock();
-            writer.WriteLine($"{RouteHelper}.Return({temp_sb});");
-            writer.EndBlock();
-
-            string GetNextTemp()
-            {
-                string next;
-                do
-                {
-                    next = $"temp{tempCounter++}";
-                }
-                while (!localNames.Add(next));
-
-                return next;
-            }
-
-            void AppendSlash()
-            {
-                writer.WriteLine($"{temp_sb}.Append('/');");
-            }
-
-            void AppendQueryName(string queryName)
-            {
-                writer.WriteLine($"{temp_sb}.Append({temp_firstQuery} ? '?' : '&');");
-                writer.WriteLine($"""{temp_sb}.Append($"{queryName}=");""");
-            }
-
-            void AppendStringConvert(TypeRef type, string name, bool lowercase)
-            {
-                writer.Write($"{temp_span} = ");
-                if (type.SpecialType is SpecialType.System_String)
-                {
-                    writer.Write(name);
                 }
                 else
                 {
-                    writer.Write($"global::System.Convert.ToString({name})");
+                    var element = GetNextTemp();
+                    writer.WriteLine($"foreach (var {element} in {parameter.Name})");
+                    writer.StartBlock();
+
+                    if (elementType.IsNullAssignable())
+                    {
+                        AppendIfNotNull(element);
+                        writer.StartBlock();
+                    }
+
+                    AppendQueryName(queryName);
+                    AppendStringConvert(elementType, element, method.LowercaseQueryStrings || parameter.IsLowercase);
+                    AppendEncode(temp_span);
+
+                    // emit first query
+                    writer.WriteLine($"{temp_firstQuery} = false;");
+
+                    if (elementType.IsNullAssignable())
+                    {
+                        writer.EndBlock();
+                    }
+                    writer.EndBlock();
                 }
-
-                if (lowercase)
-                {
-                    writer.Write("?.ToLowerInvariant()");
-                }
-                writer.WriteLine(";");
             }
-
-            void AppendEncode(string span)
+            else
             {
-                writer.WriteLine($"{RouteHelper}.EncodeSpan({temp_sb}, {span}, {temp_buffer});");
+                AppendQueryName(queryName);
+                AppendStringConvert(parameter.Type, parameter.Name, method.LowercaseQueryStrings || parameter.IsLowercase);
+                AppendEncode(temp_span);
+
+                // emit first query
+                writer.WriteLine($"{temp_firstQuery} = false;");
             }
 
-            void AppendIfNotNull(string value)
+            if (parameter.Type.IsNullAssignable())
             {
-                writer.WriteLine($"if ({value} is not null)");
+                writer.EndBlock();
             }
+        }
+
+        if (method.Fragment is FragmentParameter fragment)
+        {
+            writer.WriteLine();
+            AppendIfNotNull(fragment.Name);
+            writer.StartBlock();
+            writer.WriteLine($"{temp_sb}.Append('#');");
+            AppendStringConvert(fragment.Type, fragment.Name, false);
+            AppendEncode(temp_span);
+            writer.EndBlock();
+        }
+
+        writer.WriteLine($"return {temp_sb}.ToString();");
+
+        // end try
+        writer.EndBlock();
+
+        // finally
+        writer.WriteLine("finally");
+        writer.StartBlock();
+        writer.WriteLine($"{RouteHelper}.Return({temp_sb});");
+        writer.EndBlock();
+
+        string GetNextTemp()
+        {
+            string next;
+            do
+            {
+                next = $"temp{tempCounter++}";
+            }
+            while (!localNames.Add(next));
+
+            return next;
+        }
+
+        void AppendSlash()
+        {
+            writer.WriteLine($"{temp_sb}.Append('/');");
+        }
+
+        void AppendQueryName(string queryName)
+        {
+            writer.WriteLine($"{temp_sb}.Append({temp_firstQuery} ? '?' : '&');");
+            writer.WriteLine($"""{temp_sb}.Append($"{queryName}=");""");
+        }
+
+        void AppendStringConvert(TypeRef type, string name, bool lowercase)
+        {
+            writer.Write($"{temp_span} = ");
+            if (type.SpecialType is SpecialType.System_String)
+            {
+                writer.Write(name);
+            }
+            else
+            {
+                writer.Write($"global::System.Convert.ToString({name})");
+            }
+
+            if (lowercase)
+            {
+                writer.Write("?.ToLowerInvariant()");
+            }
+            writer.WriteLine(";");
+        }
+
+        void AppendEncode(string span)
+        {
+            writer.WriteLine($"{RouteHelper}.EncodeSpan({temp_sb}, {span}, {temp_buffer});");
+        }
+
+        void AppendIfNotNull(string value)
+        {
+            writer.WriteLine($"if ({value} is not null)");
         }
     }
     private static void EmitHelperClass(CodeWriter writer)
